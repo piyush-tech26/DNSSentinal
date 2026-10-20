@@ -123,7 +123,7 @@ _BLOCKLIST_SOURCES: dict[str, frozenset[str]] = {
 
 _INTEL_SOURCES: dict[str, frozenset[str]] = {}
 
-# FIX 1: Lock around copy-and-rebind so concurrent reloads don't
+# Lock around copy-and-rebind so concurrent reloads don't
 # lose each other's updates.  Readers still don't need the lock
 # because they iterate over a snapshot of the dict reference.
 _reload_lock = threading.Lock()
@@ -156,7 +156,7 @@ def _blacklist_match(parsed: ParsedDomain) -> Optional[BlacklistHit]:
 def reload_blocklist_source(source: str, domains: frozenset[str]) -> None:
     """Replace one blocklist source entirely (atomic rebind under lock)."""
     global _BLOCKLIST_SOURCES
-    with _reload_lock:                          # FIX 1
+    with _reload_lock:
         new = dict(_BLOCKLIST_SOURCES)
         new[source] = domains
         _BLOCKLIST_SOURCES = new
@@ -164,7 +164,7 @@ def reload_blocklist_source(source: str, domains: frozenset[str]) -> None:
 def reload_intel_source(source: str, domains: frozenset[str]) -> None:
     """Replace one threat-intel source entirely (atomic rebind under lock)."""
     global _INTEL_SOURCES
-    with _reload_lock:                          # FIX 1
+    with _reload_lock:
         new = dict(_INTEL_SOURCES)
         new[source] = domains
         _INTEL_SOURCES = new
@@ -350,7 +350,7 @@ class TunnelTracker:
                 if avg_ent >= self.avg_entropy_threshold:
                     if TUNNEL_BLOCK_ENABLED:
                         window_blocks = True
-                        # FIX 2: compute a real block score instead of
+                        # compute a real block score instead of
                         # falling back to a hard-coded 0.9 in score().
                         window_score = min(
                             0.85 + 0.15 * (
@@ -420,8 +420,6 @@ class TunnelTracker:
 
 _live_tracker = TunnelTracker()
 
-
-# =====================================================================
 #  NORMALIZATION
 # =====================================================================
 
@@ -454,7 +452,7 @@ def normalize(raw_query: str) -> Optional[ParsedDomain]:
     if not full or full == ".":
         return None
 
-    # FIX 3: DNS length validation (RFC 1035)
+    # DNS length validation
     if len(full) > 253:
         return None
     labels = full.split(".")
@@ -480,8 +478,6 @@ def normalize(raw_query: str) -> Optional[ParsedDomain]:
 
     return ParsedDomain(full=full, registered=registered, subdomain=subdomain)
 
-
-# =====================================================================
 #  LOGGING
 # =====================================================================
 
@@ -511,8 +507,6 @@ def _log_block(reason: str, domain: str, detail: str) -> None:
     if len(_block_last_log) > 10_000:
         _block_last_log.clear()
 
-
-# =====================================================================
 #  MAIN PIPELINE
 # =====================================================================
 
@@ -579,7 +573,7 @@ def score(
     if tr.window_blocks:
         _log_block("TUNNEL", parsed.full, tr.detail)
         return Verdict(
-            # FIX 2: use the real window_score computed in the tracker
+            # use the real window_score computed in the tracker
             Action.BLOCK, Reason.TUNNELING, tr.window_score,
             tr.detail, sub,
         )
